@@ -1,3 +1,106 @@
+export interface SalonService {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  duration: number;
+  description: string;
+  imageUrl: string;
+}
+
+export interface SalonTeamMember {
+  id: string;
+  name: string;
+  role: string;
+  bio: string;
+  specialties: string;
+  imageUrl: string;
+}
+
+export interface SalonConfig {
+  brand: {
+    name: string;
+    category: string;
+    tagline: string;
+    logoUrl: string;
+    heroImageUrl: string;
+    heroBadge: string;
+    heroTitle: string;
+    heroSubtitle: string;
+    heroNote: string;
+    marqueeText: string;
+    aboutTitle: string;
+    aboutText: string;
+    servicesTitle: string;
+    servicesIntro: string;
+    teamTitle: string;
+    teamIntro: string;
+    contactTitle: string;
+    contactIntro: string;
+    bookingButton: string;
+    footerText: string;
+    currency: string;
+  };
+  contact: {
+    address: string;
+    phone: string;
+    email: string;
+    instagram: string;
+    facebook: string;
+    hours: string;
+  };
+  theme: {
+    accent: string;
+    background: string;
+    surface: string;
+    text: string;
+    muted: string;
+  };
+  services: SalonService[];
+  staff: SalonTeamMember[];
+}
+
+export interface SalonRecord {
+  id: string;
+  ownerId: string;
+  slug: string;
+  publishedSlug: string | null;
+  config: SalonConfig;
+  publishedConfig?: SalonConfig | null;
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SalonOwner {
+  id: string;
+  email: string;
+  name: string;
+}
+
+export interface OwnerBooking {
+  id: string;
+  salonId: string;
+  serviceId: string;
+  serviceName: string;
+  price: number;
+  date: string;
+  timeSlot: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  notes: string;
+  status: 'Pending' | 'Confirmed' | 'Completed' | 'Rejected';
+  createdAt: string;
+}
+
+export interface PublicSalon {
+  id: string;
+  slug: string;
+  config: SalonConfig;
+  isPublished: boolean;
+}
+
 export interface Service {
   id: string;
   name: string;
@@ -177,5 +280,3 @@ export interface LoyaltyProfile {
   bonusPointsEligible: number;
   totalBookingsCount: number;
 }
-
-
