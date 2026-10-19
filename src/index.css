@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gray-400: #e4e4e7;
+  --color-gray-500: #d4d4d8;
+  --color-gray-600: #a1a1aa;
+  --color-zinc-400: #e4e4e7;
+  --color-zinc-500: #d4d4d8;
+  --color-zinc-600: #a1a1aa;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: #000000;
+    color: #f4f4f5;
+    font-weight: 400;
+  }
+
+  /* Sharpen all body text to high-intensity readable neutral */
+  p {
+    color: #e4e4e7;
+    line-height: 1.625;
+  }
+
+  /* Make form labels and titles crisp and legible */
+  label {
+    color: #f4f4f5;
+    font-weight: 500;
+  }
+
+  input,
+  textarea,
+  select {
+    color: #ffffff;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #a1a1aa;
+    opacity: 1;
+  }
+}
+
+/* ==========================================================================
+   GLOBAL HIGH-CONTRAST READABILITY ENHANCEMENTS
+   Elevates low-contrast grey tones to crisp white & high-intensity neutrals
+   ========================================================================== */
+
+/* Overrides for low-contrast text classes across all views & components */
+.text-gray-400,
+.text-zinc-400,
+.text-neutral-400 {
+  color: #e4e4e7 !important; /* High-intensity zinc-200 */
+}
+
+.text-gray-500,
+.text-zinc-500,
+.text-neutral-500 {
+  color: #d4d4d8 !important; /* Sharp zinc-300 */
+}
+
+.text-gray-600,
+.text-zinc-600,
+.text-neutral-600 {
+  color: #a1a1aa !important; /* High-contrast zinc-400 */
+}
+
+/* Prevent thin, blurry font weights on dark backgrounds */
+.font-extralight,
+.font-light {
+  font-weight: 400 !important;
+}
+
+/* Ensure small badges, tags and micro copy maintain clarity and legible tracking */
+.text-\[9px\],
+.text-\[10px\],
+.text-\[11px\] {
+  letter-spacing: 0.035em;
+}
+
+/* Enhance form labels and descriptive tags to be distinct and high-contrast */
+label,
+.font-mono.uppercase.text-gray-500,
+.font-mono.uppercase.text-gray-400 {
+  color: #e4e4e7 !important;
+}

@@ -1,0 +1,6 @@
+{
+  "name": "NEXORA SALONOS",
+  "description": "Premium luxury booking app for Nexora Salonos featuring custom WebGL gold fractal background shader, interactive book flow, and owner dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
