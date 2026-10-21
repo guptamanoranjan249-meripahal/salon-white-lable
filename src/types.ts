@@ -1,3 +1,211 @@
+export interface SalonService {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  duration: number;
+  description: string;
+  imageUrl: string;
+}
+
+export interface SalonTeamMember {
+  id: string;
+  name: string;
+  role: string;
+  bio: string;
+  specialties: string;
+  imageUrl: string;
+}
+
+export interface SalonConfig {
+  brand: {
+    name: string;
+    category: string;
+    tagline: string;
+    logoUrl: string;
+    heroImageUrl: string;
+    heroBadge: string;
+    heroTitle: string;
+    heroSubtitle: string;
+    heroNote: string;
+    marqueeText: string;
+    aboutTitle: string;
+    aboutText: string;
+    servicesTitle: string;
+    servicesIntro: string;
+    teamTitle: string;
+    teamIntro: string;
+    contactTitle: string;
+    contactIntro: string;
+    bookingButton: string;
+    footerText: string;
+    currency: string;
+    template: 'atelier' | 'minimal' | 'botanical';
+  };
+  contact: {
+    address: string;
+    locationUrl: string;
+    phone: string;
+    email: string;
+    instagram: string;
+    facebook: string;
+    hours: string;
+  };
+  theme: {
+    accent: string;
+    background: string;
+    surface: string;
+    text: string;
+    muted: string;
+  };
+  services: SalonService[];
+  staff: SalonTeamMember[];
+}
+
+export type UserRole = 'super_admin' | 'salon_owner';
+export type PublicAccessRole = 'public_visitor';
+export type AccountStatus = 'active' | 'suspended';
+export type SalonStatus = 'active' | 'suspended';
+export type SubscriptionPlan = 'free' | 'starter' | 'growth' | 'premium';
+export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'cancelled' | 'suspended';
+export type ApprovalStatus = 'onboarding' | 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'changes_requested';
+
+export interface SalonRecord {
+  id: string;
+  ownerId: string;
+  slug: string;
+  publishedSlug: string | null;
+  config: SalonConfig;
+  publishedConfig?: SalonConfig | null;
+  isPublished: boolean;
+  status: SalonStatus;
+  approvalStatus: ApprovalStatus;
+  approvalReason: string;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SalonOwner {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  status: AccountStatus;
+  emailVerified: boolean;
+}
+
+export interface AdminUserRecord extends SalonOwner {
+  createdAt: string;
+  salonId: string | null;
+  salonName: string | null;
+  slug: string | null;
+  isPublished: boolean;
+  salonStatus: SalonStatus | null;
+  subscriptionPlan: SubscriptionPlan | null;
+  subscriptionStatus: SubscriptionStatus | null;
+}
+
+export interface AdminSalonRecord {
+  id: string;
+  ownerId: string;
+  ownerName: string;
+  ownerEmail: string;
+  name: string;
+  slug: string;
+  publishedSlug: string | null;
+  isPublished: boolean;
+  status: SalonStatus;
+  approvalStatus: ApprovalStatus;
+  approvalReason: string;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  serviceCount: number;
+  staffCount: number;
+  plan: SubscriptionPlan;
+  subscriptionStatus: SubscriptionStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminReviewHistoryItem {
+  action: 'approved' | 'rejected' | 'changes_requested';
+  reason: string;
+  reviewerName: string;
+  createdAt: string;
+}
+
+export interface AdminReviewRecord {
+  salon: AdminSalonRecord;
+  config: SalonConfig;
+  history: AdminReviewHistoryItem[];
+}
+
+export interface AdminSubscriptionRecord {
+  id: string;
+  salonId: string;
+  salonName: string;
+  slug: string;
+  ownerName: string;
+  ownerEmail: string;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  startsAt: string;
+  renewsAt: string | null;
+  updatedAt: string;
+}
+
+export interface AdminOverview {
+  totalUsers: number;
+  activeUsers: number;
+  suspendedUsers: number;
+  totalSalons: number;
+  publishedWebsites: number;
+  pendingApprovals: number;
+  suspendedSalons: number;
+  activeSubscriptions: number;
+  pastDueSubscriptions: number;
+  planCounts: Record<SubscriptionPlan, number>;
+}
+
+export interface PlatformSettings {
+  platformName: string;
+  supportEmail: string;
+  defaultCurrency: string;
+  allowOwnerRegistration: boolean;
+}
+
+export interface AdminPage<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface OwnerBooking {
+  id: string;
+  salonId: string;
+  serviceId: string;
+  serviceName: string;
+  price: number;
+  date: string;
+  timeSlot: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  notes: string;
+  status: 'Pending' | 'Confirmed' | 'Completed' | 'Rejected';
+  createdAt: string;
+}
+
+export interface PublicSalon {
+  id: string;
+  slug: string;
+  config: SalonConfig;
+  isPublished: boolean;
+}
+
 export interface Service {
   id: string;
   name: string;
@@ -177,5 +385,3 @@ export interface LoyaltyProfile {
   bonusPointsEligible: number;
   totalBookingsCount: number;
 }
-
-
