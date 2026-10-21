@@ -114,7 +114,7 @@ export default function SalonWebsite({ salon, preview = false }: SalonWebsitePro
   }, [services, activeCategory, query, sortMode]);
   const phoneLink = contact.phone ? `tel:${contact.phone.replace(/[^+\d]/g, '')}` : '';
   const emailLink = contact.email ? `mailto:${contact.email}` : '';
-  const addressLink = contact.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(contact.address)}` : '';
+  const addressLink = contact.locationUrl ? safeWebLink(contact.locationUrl) : contact.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(contact.address)}` : '';
   const bookingLabel = brand.bookingButton.trim() || 'Book an appointment';
   const styleVars = {
     '--salon-accent': theme.accent,
@@ -135,7 +135,7 @@ export default function SalonWebsite({ salon, preview = false }: SalonWebsitePro
   };
 
   return (
-    <div className={`salon-site ${preview ? 'salon-site-preview' : ''}`} style={styleVars}>
+    <div className={`salon-site salon-template-${brand.template || 'atelier'} ${preview ? 'salon-site-preview' : ''}`} style={styleVars}>
       <header className="salon-header">
         <a className="salon-brand" href="#top" onClick={event => { event.preventDefault(); scrollTo('top'); }}>
           {brand.logoUrl ? <img className="salon-logo" src={brand.logoUrl} alt={`${brand.name} logo`} /> : <span className="salon-monogram">{initials(brand.name)}</span>}

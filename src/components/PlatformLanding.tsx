@@ -4,6 +4,8 @@ interface PlatformLandingProps {
   onGetStarted: () => void;
   onSignIn: () => void;
   isSignedIn?: boolean;
+  platformName?: string;
+  supportEmail?: string;
 }
 
 const capabilities = [
@@ -24,13 +26,16 @@ const capabilities = [
   },
 ];
 
-export default function PlatformLanding({ onGetStarted, onSignIn, isSignedIn = false }: PlatformLandingProps) {
+export default function PlatformLanding({ onGetStarted, onSignIn, isSignedIn = false, platformName = 'Nexora Salon Studio', supportEmail = '' }: PlatformLandingProps) {
+  const brandParts = platformName.trim().split(/\s+/).filter(Boolean);
+  const brandPrimary = brandParts[0] || 'Nexora';
+  const brandSecondary = brandParts.slice(1).join(' ') || 'SALON STUDIO';
   return (
     <div className="platform-shell min-h-screen text-white">
       <header className="platform-nav">
-        <a href="/" className="brand-lockup" aria-label="Nexora home">
+        <a href="/" className="brand-lockup" aria-label={`${platformName} home`}>
           <span className="brand-mark"><Sparkles size={17} /></span>
-          <span><strong>NEXORA</strong><small>SALON STUDIO</small></span>
+          <span><strong>{brandPrimary.toUpperCase()}</strong><small>{brandSecondary.toUpperCase()}</small></span>
         </a>
         <nav className="platform-nav-links" aria-label="Main navigation">
           <a href="#how-it-works">How it works</a>
@@ -96,7 +101,7 @@ export default function PlatformLanding({ onGetStarted, onSignIn, isSignedIn = f
         </section>
       </main>
 
-      <footer className="platform-footer"><a href="/" className="brand-lockup"><span className="brand-mark"><Sparkles size={15} /></span><span><strong>NEXORA</strong><small>SALON STUDIO</small></span></a><span>Built for independent salons and the people behind them.</span><button className="footer-link" onClick={onSignIn}>Already have an account? Sign in <ArrowRight size={13} /></button></footer>
+      <footer className="platform-footer"><a href="/" className="brand-lockup" aria-label={`${platformName} home`}><span className="brand-mark"><Sparkles size={15} /></span><span><strong>{brandPrimary.toUpperCase()}</strong><small>{brandSecondary.toUpperCase()}</small></span></a><span>Built for independent salons and the people behind them.</span><div className="platform-footer-actions">{supportEmail && <a className="footer-link" href={`mailto:${supportEmail}`}>Contact support <ArrowRight size={13} /></a>}<button className="footer-link" onClick={onSignIn}>Already have an account? Sign in <ArrowRight size={13} /></button></div></footer>
     </div>
   );
 }

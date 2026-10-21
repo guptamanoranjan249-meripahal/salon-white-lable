@@ -16,12 +16,14 @@ interface Envelope<T> {
 
 export interface AuthPayload {
   user: SalonOwner;
-  salon: SalonRecord;
+  salon: SalonRecord | null;
 }
 
 export interface PublicMeta {
   publicBaseUrl: string;
   publicBaseDomain: string;
+  platformName: string;
+  supportEmail: string;
 }
 
 export async function apiRequest<T>(
@@ -48,7 +50,7 @@ export async function apiRequest<T>(
   return 'data' in payload ? payload.data : (undefined as T);
 }
 
-export function getCurrentOwner(): Promise<AuthPayload> {
+export function getCurrentUser(): Promise<AuthPayload> {
   return apiRequest<AuthPayload>('/api/auth/me');
 }
 

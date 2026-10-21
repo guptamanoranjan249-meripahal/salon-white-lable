@@ -14,12 +14,14 @@ interface OwnerWorkspaceProps {
   salon: SalonRecord;
   onSalonChange: (salon: SalonRecord) => void;
   onSignedOut: () => void;
+  platformName?: string;
 }
 
-type WorkspaceSection = 'overview' | 'brand' | 'services' | 'team' | 'content' | 'bookings';
+type WorkspaceSection = 'overview' | 'approval' | 'brand' | 'services' | 'team' | 'content' | 'bookings';
 
 const navigation: Array<{ id: WorkspaceSection; label: string; icon: typeof LayoutDashboard }> = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'approval', label: 'Review & launch', icon: BadgeCheck },
   { id: 'brand', label: 'Website & brand', icon: Store },
   { id: 'services', label: 'Services & pricing', icon: Scissors },
   { id: 'team', label: 'Your team', icon: UsersRound },
@@ -28,13 +30,25 @@ const navigation: Array<{ id: WorkspaceSection; label: string; icon: typeof Layo
 ];
 
 const sectionTitles: Record<WorkspaceSection, { eyebrow: string; title: string; description: string }> = {
-  overview: { eyebrow: 'YOUR SALON, AT A GLANCE', title: 'Good to have you here.', description: 'Take your time setting up your online home. Your changes stay private until you publish.' },
+  overview: { eyebrow: 'YOUR SALON, AT A GLANCE', title: 'Good to have you here.', description: 'Complete onboarding, save drafts, and submit your website for Super Admin review before you publish.' },
+  approval: { eyebrow: 'ONBOARDING & REVIEW', title: 'Review & launch', description: 'Complete the launch checklist, submit your website, and track the Super Admin’s decision.' },
   brand: { eyebrow: 'MAKE IT YOURS', title: 'Website & brand', description: 'Start with your name, imagery, and colors. This is the first impression clients will remember.' },
   services: { eyebrow: 'YOUR MENU, YOUR PRICES', title: 'Services & pricing', description: 'Add the services you offer. Prices and descriptions show on your public website.' },
   team: { eyebrow: 'THE PEOPLE BEHIND THE CHAIR', title: 'Introduce your team', description: 'Show clients who they will meet and what each person loves doing.' },
   content: { eyebrow: 'SAY IT IN YOUR OWN WORDS', title: 'Content & contact', description: 'Shape the story, headings, opening information, and ways clients can reach you.' },
   bookings: { eyebrow: 'CLIENT REQUESTS', title: 'Booking requests', description: 'Every appointment request for this salon appears here—and only here.' },
 };
+
+const approvalLabels: Record<SalonRecord['approvalStatus'], string> = {
+  onboarding: 'Complete your onboarding', draft: 'Draft · not submitted', pending_approval: 'Waiting for review',
+  approved: 'Approved · ready to publish', rejected: 'Rejected · changes needed', changes_requested: 'Changes requested',
+};
+
+const templateOptions: Array<{ id: SalonConfig['brand']['template']; name: string; description: string; colors: { accent: string; background: string; surface: string; text: string; muted: string } }> = [
+  { id: 'atelier', name: 'Atelier', description: 'Editorial · dark & gold', colors: { accent: '#D4AF37', background: '#090908', surface: '#151410', text: '#F5F1E9', muted: '#B8B2A8' } },
+  { id: 'minimal', name: 'Studio', description: 'Minimal · warm & refined', colors: { accent: '#A66A52', background: '#F5F1EA', surface: '#E8E0D5', text: '#292521', muted: '#756E65' } },
+  { id: 'botanical', name: 'Botanical', description: 'Natural · sage & cream', colors: { accent: '#7D9273', background: '#F1F2EA', surface: '#E1E7DB', text: '#29332B', muted: '#667266' } },
+];
 
 function cloneConfig(config: SalonConfig): SalonConfig {
   return JSON.parse(JSON.stringify(config)) as SalonConfig;
@@ -117,7 +131,10 @@ function websiteUrl(salon: SalonRecord, meta: { publicBaseUrl: string; publicBas
   return `${window.location.origin}/${activeSlug}`;
 }
 
-export default function OwnerWorkspace({ user, salon: initialSalon, onSalonChange, onSignedOut }: OwnerWorkspaceProps) {
+export default function OwnerWorkspace({ user, salon: initialSalon, onSalonChange, onSignedOut, platformName = 'Nexora Salon Studio' }: OwnerWorkspaceProps) {
+  const brandParts = platformName.trim().split(/\s+/).filter(Boolean);
+  const brandPrimary = brandParts[0] || 'Nexora';
+  const brandSecondary = brandParts.slice(1).join(' ') || 'SALON STUDIO';
   const [salon, setSalon] = useState(initialSalon);
   const [draft, setDraft] = useState(() => cloneConfig(initialSalon.config));
   const [slug, setSlug] = useState(initialSalon.slug);
@@ -126,6 +143,7 @@ export default function OwnerWorkspace({ user, salon: initialSalon, onSalonChang
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -164,11 +182,22 @@ export default function OwnerWorkspace({ user, salon: initialSalon, onSalonChang
     Boolean(draft.brand.name.trim() && slug.trim()),
     Boolean(draft.brand.logoUrl),
     Boolean(draft.brand.heroTitle.trim()),
+    Boolean(draft.brand.heroImageUrl),
     draft.services.some(service => service.name.trim() && service.price >= 0),
     draft.staff.some(member => member.name.trim()),
-    Boolean(draft.contact.address || draft.contact.phone || draft.contact.email),
-    Boolean(draft.brand.heroImageUrl),
+    Boolean(draft.contact.phone.trim()),
+    Boolean(draft.contact.address.trim()),
+    Boolean(draft.contact.locationUrl.trim()),
+    Boolean(draft.contact.email.trim() && draft.contact.hours.trim()),
   ];
+  const approvalMissing = [
+    !draft.brand.name.trim() && 'salon name', !draft.brand.heroTitle.trim() && 'homepage heading',
+    !draft.brand.logoUrl && 'salon logo', !draft.brand.heroImageUrl && 'hero image',
+    !draft.contact.phone.trim() && 'phone number', !draft.contact.address.trim() && 'complete address',
+    !draft.contact.locationUrl.trim() && 'map or location link', !draft.contact.email.trim() && 'contact email',
+    !draft.contact.hours.trim() && 'opening hours', !draft.services.some(service => service.name.trim()) && 'at least one service and price',
+    !draft.staff.some(member => member.name.trim()) && 'at least one team member',
+  ].filter((item): item is string => Boolean(item));
   const readyCount = readyChecklist.filter(Boolean).length;
   const completion = Math.round(readyCount / readyChecklist.length * 100);
   const title = sectionTitles[section];
@@ -207,6 +236,11 @@ export default function OwnerWorkspace({ user, salon: initialSalon, onSalonChang
   const updateTheme = (key: keyof SalonConfig['theme'], value: string) => {
     setDraft(current => ({ ...current, theme: { ...current.theme, [key]: value } }));
   };
+  const selectTemplate = (template: SalonConfig['brand']['template']) => {
+    const option = templateOptions.find(item => item.id === template);
+    if (!option) return;
+    setDraft(current => ({ ...current, brand: { ...current.brand, template }, theme: { ...option.colors } }));
+  };
   const updateService = (index: number, key: keyof SalonService, value: string | number) => {
     setDraft(current => ({ ...current, services: current.services.map((service, itemIndex) => itemIndex === index ? { ...service, [key]: value } : service) }));
   };
@@ -233,6 +267,30 @@ export default function OwnerWorkspace({ user, salon: initialSalon, onSalonChang
     } finally {
       setSaving(false);
     }
+  };
+
+  const submitForApproval = async () => {
+    if (submittingReview || salon.approvalStatus === 'pending_approval') return;
+    if (approvalMissing.length) {
+      setError(`Complete these details before submitting: ${approvalMissing.join(', ')}.`);
+      changeSection('approval');
+      return;
+    }
+    setSubmittingReview(true); setError(''); setNotice('');
+    try {
+      if (isDirty) {
+        const saved = await saveDraft(true);
+        if (!saved) return;
+      }
+      const submitted = await apiRequest<SalonRecord>(`/api/salons/${encodeURIComponent(salon.id)}/submit-approval`, { method: 'POST', body: {} });
+      setSalon(submitted);
+      setDraft(cloneConfig(submitted.config));
+      setSlug(submitted.slug);
+      onSalonChange(submitted);
+      setNotice('Your website has been submitted for Super Admin review. You will see the decision here.');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Your website could not be submitted for review.');
+    } finally { setSubmittingReview(false); }
   };
 
   const publishWebsite = async () => {
@@ -313,7 +371,7 @@ export default function OwnerWorkspace({ user, salon: initialSalon, onSalonChang
   return (
     <div className="workspace-shell">
       <aside className="workspace-sidebar">
-        <a href="/dashboard" className="workspace-brand"><span className="workspace-brand-mark"><Sparkles size={16} /></span><span><strong>NEXORA</strong><small>SALON STUDIO</small></span></a>
+        <a href="/dashboard" className="workspace-brand"><span className="workspace-brand-mark"><Sparkles size={16} /></span><span><strong>{brandPrimary.toUpperCase()}</strong><small>{brandSecondary.toUpperCase()}</small></span></a>
         <div className="workspace-sidebar-label">YOUR WORKSPACE</div>
         <nav className="workspace-nav" aria-label="Workspace navigation">
           {navigation.map(({ id, label, icon: Icon }) => (
@@ -336,7 +394,7 @@ export default function OwnerWorkspace({ user, salon: initialSalon, onSalonChang
             <span className={`save-state ${isDirty ? 'save-state-dirty' : ''}`}><span />{isDirty ? 'Unsaved changes' : 'All changes saved'}</span>
             <button className="button button-quiet top-preview" onClick={() => setPreviewOpen(true)}><Eye size={15} /> Preview</button>
             {isDirty && <button className="button button-quiet top-save" onClick={() => saveDraft()} disabled={saving}>{saving ? <LoaderCircle size={14} className="spin" /> : <Check size={14} />} Save</button>}
-            {salon.isPublished && !isDirty && !hasUnpublishedEdits ? <a href={liveUrl} target="_blank" rel="noreferrer" className="button button-gold top-publish"><ExternalLink size={15} /> View live site</a> : <button className="button button-gold top-publish" onClick={publishWebsite} disabled={publishing || saving}>{publishing ? <LoaderCircle size={15} className="spin" /> : <Globe2 size={15} />} {salon.isPublished ? 'Publish updates' : 'Publish website'}</button>}
+            {salon.isPublished && !isDirty && !hasUnpublishedEdits ? <a href={liveUrl} target="_blank" rel="noreferrer" className="button button-gold top-publish"><ExternalLink size={15} /> View live site</a> : salon.approvalStatus === 'approved' ? <button className="button button-gold top-publish" onClick={publishWebsite} disabled={publishing || saving || isDirty}>{publishing ? <LoaderCircle size={15} className="spin" /> : <Globe2 size={15} />} {salon.isPublished ? 'Publish approved updates' : 'Publish website'}</button> : <button className="button button-gold top-publish" onClick={submitForApproval} disabled={submittingReview || saving || approvalMissing.length > 0 || salon.approvalStatus === 'pending_approval'}>{submittingReview ? <LoaderCircle size={15} className="spin" /> : <BadgeCheck size={15} />} {salon.approvalStatus === 'pending_approval' ? 'Awaiting review' : submittingReview ? 'Submitting…' : 'Submit for review'}</button>}
           </div>
         </header>
 
@@ -350,15 +408,17 @@ export default function OwnerWorkspace({ user, salon: initialSalon, onSalonChang
           {section === 'overview' && (
             <div className="overview-grid">
               <section className="overview-hero-card">
-                <div className="overview-hero-copy"><div className={`status-pill ${salon.isPublished ? 'status-published' : 'status-draft'}`}><span />{salon.isPublished ? hasUnpublishedEdits ? 'LIVE · DRAFT HAS CHANGES' : 'YOUR WEBSITE IS LIVE' : 'PRIVATE DRAFT'}</div><h2>{draft.brand.name || 'Your salon website'}<span>{salon.isPublished && !hasUnpublishedEdits ? ' is open for business online.' : ' is taking shape.'}</span></h2><p>{salon.isPublished ? hasUnpublishedEdits ? 'Your live website is unchanged. Publish your latest edits when they are ready.' : 'Your new online home is ready to share with the world.' : 'A few details are all it takes to bring your salon online. Nothing is public until you choose to publish.'}</p><div className="overview-hero-actions"><button className="button button-gold" onClick={() => salon.isPublished ? window.open(liveUrl, '_blank', 'noopener,noreferrer') : changeSection('brand')}>{salon.isPublished ? 'View your website' : 'Set up your website'} <ArrowRight size={15} /></button><button className="button button-dark-outline" onClick={() => setPreviewOpen(true)}><Eye size={15} /> Preview draft</button>{salon.isPublished && <button className="button button-dark-outline" onClick={unpublishWebsite}><X size={13} /> Take website offline</button>}</div></div>
+                <div className="overview-hero-copy"><div className={`status-pill ${salon.isPublished ? 'status-published' : 'status-draft'}`}><span />{salon.isPublished ? hasUnpublishedEdits ? salon.approvalStatus === 'approved' ? 'LIVE · APPROVED UPDATE READY' : 'LIVE · UPDATE NEEDS REVIEW' : 'YOUR WEBSITE IS LIVE' : salon.approvalStatus === 'pending_approval' ? 'SUBMITTED FOR REVIEW' : salon.approvalStatus === 'approved' ? 'APPROVED · READY TO PUBLISH' : salon.approvalStatus === 'rejected' ? 'REJECTED · SEE FEEDBACK' : salon.approvalStatus === 'changes_requested' ? 'CHANGES REQUESTED' : 'PRIVATE DRAFT'}</div><h2>{draft.brand.name || 'Your salon website'}<span>{salon.isPublished && !hasUnpublishedEdits ? ' is open for business online.' : ' is taking shape.'}</span></h2><p>{salon.approvalStatus === 'pending_approval' ? 'Your website is with the Super Admin for review. You will find any feedback in Review & launch.' : salon.isPublished ? hasUnpublishedEdits ? salon.approvalStatus === 'approved' ? 'Your existing site is live; the approved update is ready to publish.' : 'Your approved website remains live while the latest saved edits go through review.' : 'Your new online home is ready to share with the world.' : salon.approvalStatus === 'approved' ? 'Your website has been approved. Publish when you are ready to go live.' : 'A few details are all it takes to bring your salon online. Approved websites can then be published for clients.'}</p><div className="overview-hero-actions"><button className="button button-gold" onClick={() => salon.isPublished ? window.open(liveUrl, '_blank', 'noopener,noreferrer') : salon.approvalStatus === 'approved' ? publishWebsite() : changeSection(salon.approvalStatus === 'pending_approval' ? 'approval' : 'brand')}>{salon.isPublished ? 'View your website' : salon.approvalStatus === 'pending_approval' ? 'Track review' : salon.approvalStatus === 'approved' ? 'Publish approved site' : 'Complete onboarding'} <ArrowRight size={15} /></button><button className="button button-dark-outline" onClick={() => setPreviewOpen(true)}><Eye size={15} /> Preview draft</button>{salon.isPublished && <button className="button button-dark-outline" onClick={unpublishWebsite}><X size={13} /> Take website offline</button>}</div></div>
                 <div className="overview-hero-art"><div className="art-ring ring-one" /><div className="art-ring ring-two" /><div className="art-glint">✳</div><span className="art-wordmark">{draft.brand.name ? draft.brand.name.slice(0, 1).toUpperCase() : '✦'}</span><span className="art-caption">A LITTLE SPACE<br />THAT IS ALL YOURS</span></div>
               </section>
+
+              {(salon.approvalStatus === 'rejected' || salon.approvalStatus === 'changes_requested') && salon.approvalReason && <button type="button" className="approval-overview-feedback" onClick={() => changeSection('approval')}><span><CircleHelp size={16} /></span><span><strong>Super Admin feedback is ready</strong><small>{salon.approvalReason}</small></span><ArrowRight size={15} /></button>}
 
               <section className="checklist-card">
                 <div className="card-heading-row"><div><span className="eyebrow card-eyebrow">YOUR SETUP</span><h2>Make your mark</h2></div><div className="progress-ring" style={{ '--progress': `${completion * 3.6}deg` } as CSSProperties}><span>{completion}%</span></div></div>
                 <p className="checklist-intro">A thoughtful start makes all the difference. Keep going at your own pace.</p>
                 <div className="checklist-items">
-                  {[['brand', 'Name your website'], ['brand', 'Add a salon logo'], ['content', 'Write your hero heading'], ['services', 'Add your services'], ['team', 'Introduce your team'], ['content', 'Add contact details'], ['brand', 'Choose a hero image']].map(([target, label], index) => {
+                  {[['brand', 'Name your website'], ['brand', 'Add a salon logo'], ['content', 'Write your hero heading'], ['brand', 'Choose a hero image'], ['services', 'Add a service and price'], ['team', 'Introduce a team member'], ['content', 'Add your phone number'], ['content', 'Add your full address'], ['content', 'Add a map location'], ['content', 'Add email and opening hours']].map(([target, label], index) => {
                     const done = readyChecklist[index];
                     return <button key={label} className={`checklist-item ${done ? 'is-done' : ''}`} onClick={() => changeSection(target as WorkspaceSection)}><span className="checklist-check">{done ? <Check size={12} /> : <span>{String(index + 1).padStart(2, '0')}</span>}</span><span>{label}</span><ArrowRight size={14} /></button>;
                   })}
@@ -376,12 +436,29 @@ export default function OwnerWorkspace({ user, salon: initialSalon, onSalonChang
             </div>
           )}
 
+          {section === 'approval' && (
+            <div className="approval-workspace">
+              <section className="approval-status-card">
+                <div className="approval-status-icon"><BadgeCheck size={22} /></div>
+                <div className="approval-status-main"><span className={`review-status status-${salon.approvalStatus}`}>{approvalLabels[salon.approvalStatus]}</span><h2>{salon.approvalStatus === 'pending_approval' ? 'Your website is in the review queue.' : salon.approvalStatus === 'approved' ? 'Your website is approved.' : salon.approvalStatus === 'rejected' || salon.approvalStatus === 'changes_requested' ? 'A few updates will get you there.' : 'Let’s get your website ready.'}</h2><p>{salon.approvalStatus === 'pending_approval' ? 'A Super Admin is reviewing your salon details. We’ll keep this status and any feedback here.' : salon.approvalStatus === 'approved' ? 'You can publish this version now. Any substantial change you save will need a fresh review before the updated website can go live.' : 'Finish the launch checklist below, save your draft, and submit it for a Super Admin review.'}</p></div>
+                <div className="approval-status-dates">{salon.submittedAt && <span><small>SUBMITTED</small>{new Date(salon.submittedAt).toLocaleDateString()}</span>}{salon.reviewedAt && <span><small>LAST REVIEWED</small>{new Date(salon.reviewedAt).toLocaleDateString()}</span>}</div>
+              </section>
+              {(salon.approvalStatus === 'rejected' || salon.approvalStatus === 'changes_requested') && salon.approvalReason && <section className="approval-reason-card"><span><CircleHelp size={17} /></span><div><strong>Super Admin feedback</strong><p>{salon.approvalReason}</p></div></section>}
+              <section className="builder-card approval-checklist-card"><div className="builder-card-heading"><div><span className="eyebrow card-eyebrow">LAUNCH CHECKLIST</span><h2>{approvalMissing.length ? `${approvalMissing.length} items to complete` : 'Ready to submit'}</h2><p>Every salon website needs complete, accurate details before review.</p></div><span className={`approval-check-count ${approvalMissing.length ? '' : 'is-complete'}`}>{readyCount}/{readyChecklist.length}</span></div><div className="approval-checklist">{[['Name your salon & address', readyChecklist[0], 'brand'], ['Add your logo', readyChecklist[1], 'brand'], ['Write your homepage heading', readyChecklist[2], 'content'], ['Add a hero image', readyChecklist[3], 'brand'], ['Add a service and price', readyChecklist[4], 'services'], ['Introduce a team member', readyChecklist[5], 'team'], ['Add a phone number', readyChecklist[6], 'content'], ['Add your full address', readyChecklist[7], 'content'], ['Add a secure map link', readyChecklist[8], 'content'], ['Add your email & opening hours', readyChecklist[9], 'content']].map(([label, done, target]) => <button type="button" key={String(label)} className={`approval-check-row ${done ? 'is-done' : ''}`} onClick={() => changeSection(target as WorkspaceSection)}><span>{done ? <Check size={14} /> : <ArrowRight size={14} />}</span><strong>{String(label)}</strong><small>{done ? 'Complete' : 'Add details'}</small></button>)}</div>
+                <div className="approval-action-row"><p>{salon.isPublished ? 'Your existing approved version remains live while changes are reviewed.' : 'Your website remains private until a Super Admin approves it and you publish.'}{isDirty && ' Save your latest edits before submitting.'}</p>{salon.approvalStatus === 'pending_approval' ? <button className="button button-quiet" disabled><Clock3 size={15} /> In review</button> : salon.approvalStatus === 'approved' ? <button className="button button-gold" onClick={publishWebsite} disabled={publishing || saving || isDirty}>{publishing ? <LoaderCircle size={15} className="spin" /> : <Globe2 size={15} />}{salon.isPublished ? 'Publish approved updates' : 'Publish website'}</button> : <button className="button button-gold" onClick={submitForApproval} disabled={submittingReview || saving || approvalMissing.length > 0}>{submittingReview ? <LoaderCircle size={15} className="spin" /> : <BadgeCheck size={15} />}{submittingReview ? 'Submitting…' : salon.approvalStatus === 'rejected' || salon.approvalStatus === 'changes_requested' ? 'Resubmit for review' : 'Submit for review'}</button>}</div>
+              </section>
+              {salon.approvalStatus === 'pending_approval' && isDirty && <p className="approval-edit-warning"><ShieldCheck size={15} /> Save changes to withdraw this review submission; you’ll need to submit the updated draft again.</p>}
+            </div>
+          )}
+
           {section === 'brand' && (
             <div className="editor-layout">
               <div className="editor-main-column">
                 <section className="builder-card"><div className="builder-card-heading"><div><span className="eyebrow card-eyebrow">THE DETAILS CLIENTS SEE FIRST</span><h2>Your salon identity</h2><p>These details appear in your site header, browser link, and first impression.</p></div><span className="builder-section-icon"><Store size={18} /></span></div>
                   <div className="builder-form-grid"><Field label="Salon / website name"><input value={draft.brand.name} onChange={event => updateBrand('name', event.target.value)} placeholder="Your salon name" maxLength={100} required /></Field><Field label="Website address" hint="Lowercase letters, numbers, and hyphens only."><div className="slug-editor"><span>{meta.publicBaseDomain ? 'https://…' : `${window.location.host}/`}</span><input value={slug} onChange={event => setSlug(cleanSlugInput(event.target.value))} placeholder="your-salon" maxLength={48} /></div></Field><Field label="Salon type"><input value={draft.brand.category} onChange={event => updateBrand('category', event.target.value)} placeholder="Hair salon, wellness studio, barbershop…" maxLength={60} /></Field><Field label="Short tagline" hint="A short line that captures your salon’s feel."><input value={draft.brand.tagline} onChange={event => updateBrand('tagline', event.target.value)} placeholder="A few words that sound like you" maxLength={180} /></Field><Field label="Pricing currency"><select value={draft.brand.currency} onChange={event => updateBrand('currency', event.target.value)}>{[['INR', 'Indian Rupee (INR)'], ['USD', 'US Dollar (USD)'], ['GBP', 'Pound Sterling (GBP)'], ['EUR', 'Euro (EUR)'], ['AED', 'UAE Dirham (AED)'], ['CAD', 'Canadian Dollar (CAD)'], ['AUD', 'Australian Dollar (AUD)']].map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select></Field></div>
                 </section>
+
+                <section className="builder-card"><div className="builder-card-heading"><div><span className="eyebrow card-eyebrow">CHOOSE YOUR STARTING POINT</span><h2>Website template</h2><p>Pick a visual direction, then refine its colors and content.</p></div><span className="builder-section-icon"><Palette size={18} /></span></div><div className="template-choice-grid">{templateOptions.map(option => <button type="button" key={option.id} aria-pressed={draft.brand.template === option.id} className={`template-choice ${draft.brand.template === option.id ? 'is-selected' : ''}`} onClick={() => selectTemplate(option.id)}><span className={`template-swatch template-swatch-${option.id}`} style={{ '--template-accent': option.colors.accent, '--template-background': option.colors.background, '--template-surface': option.colors.surface } as CSSProperties}><i /><i /><i /></span><span className="template-choice-copy"><strong>{option.name}</strong><small>{option.description}</small></span><span className="template-choice-check"><Check size={13} /></span></button>)}</div></section>
 
                 <section className="builder-card"><div className="builder-card-heading"><div><span className="eyebrow card-eyebrow">YOUR VISUAL SIGNATURE</span><h2>Logo & photography</h2><p>Upload your own imagery or paste a secure image URL. Files stay associated with your account.</p></div><span className="builder-section-icon"><ImagePlus size={18} /></span></div>
                   <div className="image-picker-grid"><ImagePicker label="Salon logo" hint="Square artwork looks best. JPG, PNG, WEBP, or GIF · up to 5 MB." value={draft.brand.logoUrl} ratio="square" onChange={value => updateBrand('logoUrl', value)} /><ImagePicker label="Hero image" hint="Use a wide image to set the mood at the top of your website." value={draft.brand.heroImageUrl} onChange={value => updateBrand('heroImageUrl', value)} /></div>
@@ -408,7 +485,7 @@ export default function OwnerWorkspace({ user, salon: initialSalon, onSalonChang
             <div className="editor-layout content-editor-layout"><div className="editor-main-column">
               <section className="builder-card"><div className="builder-card-heading"><div><span className="eyebrow card-eyebrow">THE FIRST HELLO</span><h2>Homepage story</h2><p>Write the words that welcome clients in. Leave a field empty to keep that line off your website.</p></div><span className="builder-section-icon"><PencilLine size={18} /></span></div><div className="builder-form-grid"><Field label="Small introduction line"><input value={draft.brand.heroBadge} onChange={event => updateBrand('heroBadge', event.target.value)} placeholder="Welcome to our studio" maxLength={80} /></Field><Field label="Main hero heading"><input value={draft.brand.heroTitle} onChange={event => updateBrand('heroTitle', event.target.value)} placeholder="A heading that feels like you" maxLength={140} /></Field><Field label="Introduction below heading" className="span-two"><textarea rows={3} value={draft.brand.heroSubtitle} onChange={event => updateBrand('heroSubtitle', event.target.value)} placeholder="Share a little about what clients can expect here." maxLength={500} /></Field><Field label="About section heading"><input value={draft.brand.aboutTitle} onChange={event => updateBrand('aboutTitle', event.target.value)} placeholder="A little about us" maxLength={100} /></Field><Field label="Services section heading"><input value={draft.brand.servicesTitle} onChange={event => updateBrand('servicesTitle', event.target.value)} placeholder="Our services" maxLength={100} /></Field><Field label="About your salon" className="span-two"><textarea rows={6} value={draft.brand.aboutText} onChange={event => updateBrand('aboutText', event.target.value)} placeholder="Your approach, your neighborhood, and what makes a visit feel special…" maxLength={2400} /></Field></div></section>
               <section className="builder-card"><div className="builder-card-heading"><div><span className="eyebrow card-eyebrow">YOUR WEBSITE SECTIONS</span><h2>Headings & calls to action</h2><p>Every line is editable. Keep the language true to the experience you offer.</p></div><span className="builder-section-icon"><Sparkles size={18} /></span></div><div className="builder-form-grid"><Field label="Team section heading"><input value={draft.brand.teamTitle} onChange={event => updateBrand('teamTitle', event.target.value)} placeholder="Meet the team" maxLength={100} /></Field><Field label="Contact section heading"><input value={draft.brand.contactTitle} onChange={event => updateBrand('contactTitle', event.target.value)} placeholder="Find your way to us" maxLength={100} /></Field><Field label="Hero note"><input value={draft.brand.heroNote} onChange={event => updateBrand('heroNote', event.target.value)} placeholder="A short line beneath your introduction" maxLength={100} /></Field><Field label="Brand detail strip"><input value={draft.brand.marqueeText} onChange={event => updateBrand('marqueeText', event.target.value)} placeholder="A short phrase about your salon" maxLength={160} /></Field><Field label="Services introduction" className="span-two"><textarea rows={2} value={draft.brand.servicesIntro} onChange={event => updateBrand('servicesIntro', event.target.value)} placeholder="A line to introduce your service menu." maxLength={500} /></Field><Field label="Team introduction" className="span-two"><textarea rows={2} value={draft.brand.teamIntro} onChange={event => updateBrand('teamIntro', event.target.value)} placeholder="A line to introduce your team." maxLength={500} /></Field><Field label="Contact introduction" className="span-two"><textarea rows={2} value={draft.brand.contactIntro} onChange={event => updateBrand('contactIntro', event.target.value)} placeholder="A warm invitation to get in touch." maxLength={500} /></Field><Field label="Booking button text"><input value={draft.brand.bookingButton} onChange={event => updateBrand('bookingButton', event.target.value)} placeholder="Book an appointment" maxLength={60} /></Field><Field label="Footer note"><textarea rows={2} value={draft.brand.footerText} onChange={event => updateBrand('footerText', event.target.value)} placeholder="A sign-off or note for clients." maxLength={500} /></Field></div></section>
-            </div><aside className="editor-aside"><section className="builder-card"><div className="builder-card-heading"><div><span className="eyebrow card-eyebrow">MAKE IT EASY TO VISIT</span><h2>Contact & opening hours</h2><p>Clients can use these details directly from your website.</p></div><span className="builder-section-icon"><Globe2 size={18} /></span></div><div className="contact-editor-fields"><Field label="Salon address"><textarea rows={3} value={draft.contact.address} onChange={event => updateContact('address', event.target.value)} placeholder="Street, area, city, postcode" maxLength={300} /></Field><Field label="Phone number"><input type="tel" value={draft.contact.phone} onChange={event => updateContact('phone', event.target.value)} placeholder="+91 …" maxLength={60} /></Field><Field label="Booking / contact email"><input type="email" value={draft.contact.email} onChange={event => updateContact('email', event.target.value)} placeholder="hello@yoursalon.com" maxLength={254} /></Field><Field label="Opening hours" hint="Add one line per day if that is easiest."><textarea rows={5} value={draft.contact.hours} onChange={event => updateContact('hours', event.target.value)} placeholder={'Monday – Friday · 9am–6pm\nSaturday · 10am–4pm\nSunday · Closed'} maxLength={700} /></Field></div></section><section className="builder-card"><div className="builder-card-heading"><div><span className="eyebrow card-eyebrow">STAY CONNECTED</span><h2>Social links</h2><p>Share the profiles where clients can find your latest work.</p></div></div><div className="contact-editor-fields"><Field label="Instagram URL"><input type="url" value={draft.contact.instagram} onChange={event => updateContact('instagram', event.target.value)} placeholder="https://instagram.com/…" maxLength={600} /></Field><Field label="Facebook URL"><input type="url" value={draft.contact.facebook} onChange={event => updateContact('facebook', event.target.value)} placeholder="https://facebook.com/…" maxLength={600} /></Field></div></section></aside></div>
+            </div><aside className="editor-aside"><section className="builder-card"><div className="builder-card-heading"><div><span className="eyebrow card-eyebrow">MAKE IT EASY TO VISIT</span><h2>Contact & opening hours</h2><p>Clients can use these details directly from your website.</p></div><span className="builder-section-icon"><Globe2 size={18} /></span></div><div className="contact-editor-fields"><Field label="Complete salon address"><textarea rows={3} value={draft.contact.address} onChange={event => updateContact('address', event.target.value)} placeholder="Building, street, area, city, state, postcode" maxLength={300} /></Field><Field label="Map / location link" hint="Paste a secure Google Maps or directions URL."><input type="url" value={draft.contact.locationUrl} onChange={event => updateContact('locationUrl', event.target.value)} placeholder="https://maps.google.com/…" maxLength={600} /></Field><Field label="Phone number"><input type="tel" value={draft.contact.phone} onChange={event => updateContact('phone', event.target.value)} placeholder="+91 …" maxLength={60} /></Field><Field label="Booking / contact email"><input type="email" value={draft.contact.email} onChange={event => updateContact('email', event.target.value)} placeholder="hello@yoursalon.com" maxLength={254} /></Field><Field label="Opening hours" hint="Add one line per day if that is easiest."><textarea rows={5} value={draft.contact.hours} onChange={event => updateContact('hours', event.target.value)} placeholder={'Monday – Friday · 9am–6pm\nSaturday · 10am–4pm\nSunday · Closed'} maxLength={700} /></Field></div></section><section className="builder-card"><div className="builder-card-heading"><div><span className="eyebrow card-eyebrow">STAY CONNECTED</span><h2>Social links</h2><p>Share the profiles where clients can find your latest work.</p></div></div><div className="contact-editor-fields"><Field label="Instagram URL"><input type="url" value={draft.contact.instagram} onChange={event => updateContact('instagram', event.target.value)} placeholder="https://instagram.com/…" maxLength={600} /></Field><Field label="Facebook URL"><input type="url" value={draft.contact.facebook} onChange={event => updateContact('facebook', event.target.value)} placeholder="https://facebook.com/…" maxLength={600} /></Field></div></section></aside></div>
           )}
 
           {section === 'bookings' && (

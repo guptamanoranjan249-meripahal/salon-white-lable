@@ -126,9 +126,11 @@ export function defaultSalonConfig(salonName: string): SalonConfig {
       bookingButton: '',
       footerText: '',
       currency: 'INR',
+      template: 'atelier',
     },
     contact: {
       address: '',
+      locationUrl: '',
       phone: '',
       email: '',
       instagram: '',
@@ -160,18 +162,20 @@ export function normalizeSalonConfig(value: unknown, ownerId: string, salonNameF
 
   const currency = cleanText(brand.currency, 'Currency', 3).toUpperCase() || 'INR';
   if (!/^[A-Z]{3}$/.test(currency)) throw new ValidationError('Choose a valid three-letter currency code.');
+  const template = cleanText(brand.template, 'Website template', 20) || 'atelier';
+  if (!['atelier', 'minimal', 'botanical'].includes(template)) throw new ValidationError('Choose a supported website template.');
   try {
     new Intl.NumberFormat('en', { style: 'currency', currency }).format(0);
   } catch {
     throw new ValidationError('Choose a supported currency.');
   }
 
-  const normalizeLink = (input: unknown, label: string): string => {
+  const normalizeLink = (input: unknown, label: string, httpsOnly = false): string => {
     const link = cleanText(input, label, 600);
     if (!link) return '';
     try {
       const parsed = new URL(link);
-      if (!['https:', 'http:', 'mailto:', 'tel:'].includes(parsed.protocol)) throw new Error('invalid link');
+      if (!(httpsOnly ? parsed.protocol === 'https:' : ['https:', 'http:', 'mailto:', 'tel:'].includes(parsed.protocol))) throw new Error('invalid link');
       return link;
     } catch {
       throw new ValidationError(`${label} must be a valid web, email, or phone link.`);
@@ -201,9 +205,11 @@ export function normalizeSalonConfig(value: unknown, ownerId: string, salonNameF
       bookingButton: cleanText(brand.bookingButton, 'Booking button text', 60),
       footerText: cleanText(brand.footerText, 'Footer text', 500),
       currency,
+      template: template as SalonConfig['brand']['template'],
     },
     contact: {
       address: cleanText(contact.address, 'Address', 300),
+      locationUrl: normalizeLink(contact.locationUrl, 'Map and directions link', true),
       phone: cleanText(contact.phone, 'Phone', 60),
       email: contact.email ? normalizeEmail(contact.email) : '',
       instagram: normalizeLink(contact.instagram, 'Instagram link'),
